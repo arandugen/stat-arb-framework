@@ -1,4 +1,3 @@
-relationship,status,coint_p_value,is_cointegrated,kpss_p_value,hurst_exponent,is_stationary_robust,meia_vida
-SUZB3_KLBN11,Sucesso,0.0128,True,0.0151,1.2746,False,29.5 dias
-BGI$_CCM$,Sucesso,0.2991,False,0.0100,-0.2377,False,
-DOL$_WDO$,Sucesso,0.5071,False,0.0100,0.7278,False,
+relationship,status,adf_p_value_Y,adf_p_value_X,coint_p_value,is_cointegrated,half_life_minutes,kpss_p_value,hurst_exponent,is_stationary_robust
+"('WIN$', 'DI1$')",Sucesso,0.3152,0.0783,0.0017,True,12716.3598,0.0100,1.0766,False
+"('WIN$', 'DOL$')",Sucesso,0.3152,0.5208,0.0329,True,15473.4629,0.0100,0.9255,False

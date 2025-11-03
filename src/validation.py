@@ -23,6 +23,7 @@ def calculate_half_life_ou(spread: pd.Series) -> float:
     
     return np.log(2) / -gamma if gamma < 0 else np.inf
 
+
 def validate_pair_engle_granger(df: pd.DataFrame,
                                 freq_in_minutes: int,
                                 validation_config: dict) -> dict:
@@ -42,19 +43,30 @@ def validate_pair_engle_granger(df: pd.DataFrame,
     kpss_limit = validation_config.get('KPSS_P_VALUE_THRESHOLD', 0.05)
     hurst_limit = validation_config.get('HURST_THRESHOLD', 0.5)
 
-    # --- Teste de Raiz Unitária (ADF) - Pré-filtro ---
+    # --- Inicializa variáveis de resultado ---
+    half_life_minutes = np.nan
+    kpss_p_value = np.nan
+    H = np.nan
+    is_robust = False
+    half_life_periods = np.nan
+    spread = pd.Series(dtype=float)
+    coint_p_value = np.nan
+    is_cointegrated = False
+    
+    # --- NOVAS VARIÁVEIS ---
+    adf_p_value_Y = np.nan
+    adf_p_value_X = np.nan
+    status = 'Sucesso' # Começa como Sucesso
+
+    # --- TESTE ADF INDIVIDUAL ---
     try:
-        adf_p1 = ts.adfuller(df[asset1].dropna())[1]
-        adf_p2 = ts.adfuller(df[asset2].dropna())[1]
-        if adf_p1 < adf_limit or adf_p2 < adf_limit:
-            return {'status': 'Falha ADF: Série individual estacionária', 'coint_p_value': np.nan,
-                    'is_cointegrated': False, 'half_life_minutes': np.nan, 'kpss_p_value': np.nan,
-                    'hurst_exponent': np.nan, 'is_stationary_robust': False}
+        adf_p_value_Y = ts.adfuller(df[asset1].dropna())[1]
+        adf_p_value_X = ts.adfuller(df[asset2].dropna())[1]
+        
+        
     except Exception as e:
          logging.error(f"Erro no teste ADF para {asset1}/{asset2}: {e}")
-         return {'status': f'Erro ADF: {e}', 'coint_p_value': np.nan,
-                 'is_cointegrated': False, 'half_life_minutes': np.nan, 'kpss_p_value': np.nan,
-                 'hurst_exponent': np.nan, 'is_stationary_robust': False}
+         status = 'Erro ADF'
 
 
     # --- Teste de Cointegração (EG) ---
@@ -67,31 +79,21 @@ def validate_pair_engle_granger(df: pd.DataFrame,
         is_cointegrated = False
 
 
-    # --- Inicializa variáveis de resultado ---
-    half_life_minutes = np.nan
-    kpss_p_value = np.nan
-    H = np.nan
-    is_robust = False
-    half_life_periods = np.nan
-    spread = pd.Series(dtype=float) # Inicializa spread vazio
-
     # --- Calcula o Spread (SEMPRE) ---
     try:
-        # Garante que não há NaNs antes do OLS
         df_clean = df.dropna()
-        if len(df_clean) < 2: # OLS precisa de pelo menos 2 pontos
+        if len(df_clean) < 2: 
              raise ValueError("Dados insuficientes após dropna para calcular OLS.")
 
         ols_model = sm.OLS(df_clean[asset1], sm.add_constant(df_clean[asset2])).fit()
         hedge_ratio = ols_model.params.iloc[1]
-        spread = (df[asset1] - hedge_ratio * df[asset2]).dropna() # Recalcula no df original para manter o índice
+        spread = (df[asset1] - hedge_ratio * df[asset2]).dropna()
     except Exception as e:
         logging.error(f"Erro ao calcular Spread/OLS para {asset1}-{asset2}: {e}")
-        # Se OLS falhar, não podemos calcular KPSS, Hurst ou Meia-Vida
+        status = 'Erro OLS'
 
-    # --- Calcula KPSS e Hurst (SEMPRE, se o spread foi calculado) ---
+    # --- Calcula KPSS e Hurst ---
     if not spread.empty:
-        # Teste KPSS no spread
         try:
             with warnings.catch_warnings():
                 warnings.filterwarnings('ignore', category=InterpolationWarning)
@@ -100,28 +102,23 @@ def validate_pair_engle_granger(df: pd.DataFrame,
             logging.warning(f"Falha ao calcular KPSS para {asset1}-{asset2}: {e}")
             kpss_p_value = np.nan
 
-        # Teste Hurst no spread
         try:
-            H_series_positive = spread - spread.min() + 1e-9 # Garante positividade
+            H_series_positive = spread - spread.min() + 1e-9 
             H = compute_Hc(H_series_positive, kind='price', simplified=True)[0]
         except Exception as e:
             logging.warning(f"Falha ao calcular Hurst para {asset1}-{asset2}: {e}")
             H = np.nan
+    elif status == 'Sucesso':
+        status = 'Erro Spread Vazio'
 
-    # --- Calcula Meia-Vida (CONDICIONALMENTE) ---
-    # Opção 1: Apenas se for cointegrado pelo EG
-    if is_cointegrated and not spread.empty:
+    # --- Calcula Meia-Vida ---
+    kpss_passed = (not pd.isna(kpss_p_value)) and (kpss_p_value > kpss_limit)
+    
+    # Calcula meia-vida se EG passou OU se KPSS passou
+    if (is_cointegrated or kpss_passed) and not spread.empty:
         half_life_periods = calculate_half_life_ou(spread)
         if np.isfinite(half_life_periods) and half_life_periods > 0:
             half_life_minutes = half_life_periods * freq_in_minutes
-
-    # (Opcional) Opção 2: Se passar no KPSS (mesmo sem EG)
-    kpss_passed = (not pd.isna(kpss_p_value)) and (kpss_p_value > kpss_limit)
-    if kpss_passed and not spread.empty:
-        half_life_periods = calculate_half_life_ou(spread)
-    if np.isfinite(half_life_periods) and half_life_periods > 0:
-        half_life_minutes = half_life_periods * freq_in_minutes
-
 
     # --- Define Robustez (Baseado em KPSS e Hurst) ---
     if (not pd.isna(kpss_p_value)) and (not pd.isna(H)):
@@ -129,18 +126,19 @@ def validate_pair_engle_granger(df: pd.DataFrame,
             is_robust = True
 
     # --- Monta o dicionário final ---
-    status = 'Sucesso'
-    if pd.isna(coint_p_value) and pd.isna(kpss_p_value) and pd.isna(H):
-        status = 'Falha Total nos Testes' # Se tudo falhou
+    if status == 'Sucesso' and pd.isna(coint_p_value) and pd.isna(kpss_p_value):
+        status = 'Falha Testes Spread'
 
     return {
         'status': status,
+        'adf_p_value_Y': adf_p_value_Y, 
+        'adf_p_value_X': adf_p_value_X, 
         'coint_p_value': coint_p_value,
-        'is_cointegrated': is_cointegrated, # Resultado do EG
-        'half_life_minutes': half_life_minutes, # Calculado condicionalmente
-        'kpss_p_value': kpss_p_value, # Calculado sempre (se possível)
-        'hurst_exponent': H, # Calculado sempre (se possível)
-        'is_stationary_robust': is_robust # Baseado em KPSS e Hurst
+        'is_cointegrated': is_cointegrated,
+        'kpss_p_value': kpss_p_value,
+        'hurst_exponent': H,
+        'is_stationary_robust': is_robust,
+        'half_life_minutes': half_life_minutes
     }
 
 def validate_trio_johansen(df: pd.DataFrame) -> dict:
@@ -163,3 +161,22 @@ def validate_trio_johansen(df: pd.DataFrame) -> dict:
         'status': 'Sucesso',
         'coint_rank': coint_rank  # Retorna o número de relações de cointegração
     }
+
+def filter_valid_pairs(df_validation_results: pd.DataFrame) -> pd.DataFrame:
+    """
+    Filtra o DataFrame de resultados de validação para retornar
+    apenas os pares que passaram nos critérios de trading.
+    (Lógica movida de main_pipeline.py)
+    """
+    if df_validation_results.empty:
+        return pd.DataFrame()
+        
+    # Critério Híbrido: Passa se (EG passou) OU (KPSS+Hurst passaram)
+    valid_pairs = df_validation_results[
+        (
+            (df_validation_results['is_cointegrated'] == True) | 
+            (df_validation_results['is_stationary_robust'] == True)
+        )
+    ].copy()
+    
+    return valid_pairs

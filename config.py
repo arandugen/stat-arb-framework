@@ -7,34 +7,46 @@ from datetime import datetime
 # Defina cada ativo como uma tupla: (TICKER, FONTE)
 # Fontes válidas: 'mt5' ou 'yfinance'
 
-# --- Exemplo de Ativos Individuais ---
-Y_ASSET_DOL = ('DOL$', 'mt5')  # Contrato dólar
-X_ASSET_MINIDOL = ('WDO$', 'mt5')       # Mini Dólar Futuro (contínuo) do MT5
+# --- Derivativos ---
 
-Y_ASSET_BGI = ('BGI$', 'mt5')
-X_ASSET_CCM = ('CCM$', 'mt5')
+ASSET_BGI = ('BGI$', 'mt5') 
+ASSET_CCM = ('CCM$', 'mt5')
 
-Y_ASSET_SUZB3 = ('SUZB3', 'mt5')
-X_ASSET_KLBN11 = ('KLBN11', 'mt5')
+# ASSET_CCM
+ASSET_ICF = ('ICF$', 'mt5')
 
+ASSET_WIN = ('WIN$', 'mt5')
+ASSET_DOL = ('DOL$', 'mt5')
+
+# ASSET_DOL
+ASSET_DI = ('DI1$', 'mt5')
+
+# ASSET_WIN
+# ASSET_DI
 
 # --- Lista de Pares para Analisar ---
 # Agora é uma lista de tuplas, onde cada elemento é um ativo (ticker, fonte)
 ASSET_PAIRS_TO_ANALYZE = [
-    # O par misto que você queria:
-    (Y_ASSET_DOL, X_ASSET_MINIDOL),
+   # (ASSET_BGI, ASSET_CCM),
+
+   # (ASSET_CCM, ASSET_ICF),
     
-    # Um par puro do YFinance:
-    (Y_ASSET_BGI, X_ASSET_CCM),
-    
-    # Um par puro do MT5:
-    (Y_ASSET_SUZB3, X_ASSET_KLBN11)
+    (ASSET_WIN, ASSET_DOL),
+
+   # (ASSET_DOL, ASSET_DI),
+
+    (ASSET_WIN, ASSET_DI)
 ]
 
 # --- Benchmarks (também granulares) ---
 BENCHMARK_TICKERS = [
     ('^BVSP', 'yfinance'), # Ibovespa do YFinance
-    ('WIN$', 'mt5'),      # Mini-Índice do MT5
+    ('BGI$', 'mt5'),
+    ('WIN$', 'mt5'),
+    ('DOL$', 'mt5'),
+    ('DI1$', 'mt5'),
+    ('CCM$', 'mt5')
+
 ]
 
 # =============================================================================
@@ -81,9 +93,9 @@ STRATEGY_CONFIG = {
     # (O resto dos parâmetros de bbands, trend, garch...)
     "garch_weight_window": 252, # Nova janela para o Z-Score da volatilidade
     # --- Parâmetros dos Indicadores (do Repo 1) ---
-    "bbands_window": 30,
-    "bbands_std": 1.0,
-    "trend_window": 90, # Janela da SMA longa (filtro de tendência)
+    "bbands_window": 20,
+    "bbands_std": 2.0,
+    "trend_window": 50, # Janela da SMA longa (filtro de tendência)
     
     # --- Parâmetros do GARCH (do Repo 1) ---
     "garch_lookback": 252, # Janela rolante para treinar o GARCH
@@ -108,6 +120,6 @@ BACKTEST_CONFIG = {
 
     # Parâmetros de Simulação de Portfólio
     "initial_capital": 100000.0,
-    "trade_size_pct": 1.0, # Usar 100% do capital
+    "trade_size_pct": 0.5, # Usar 100% do capital
     "short_rental_fee_annual": 0.02 # 2% ao ano
 }

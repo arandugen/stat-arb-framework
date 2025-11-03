@@ -8,7 +8,7 @@ Este documento detalha cada seção do `config.py` e seu impacto técnico nos m�
 
 ## Seção 1: Pipeline e Definição de Ativos
 
-Esta seção controla o *pipeline* de ETL (Extração, Transformação, Carga) orquestrado pelo `manage_data.py`.
+Esta seção controla o *pipeline* de ETL (Extração, Transformação, Carga) orquestrado pelo `run_etl.py`.
 
 ### `ASSET_PAIRS_TO_ANALYZE`
 Define a lista de pares (tuplas) que serão baixados, processados e validados. O *framework* suporta uma arquitetura de fontes mistas, onde cada ativo é definido por `(TICKER, FONTE)`.
@@ -16,7 +16,7 @@ Define a lista de pares (tuplas) que serão baixados, processados e validados. O
 * **`TICKER`**: O nome do ativo (ex: `'SUZB3'`, `'BRL=X'`).
 * **`FONTE`**: A origem dos dados (`'mt5'` ou `'yfinance'`).
 
-O `manage_data.py` lê esta lista, agrupa os tickers únicos por fonte e chama a função de coleta apropriada em `src/data_collection.py`. O `src/processing.py` então usa os nomes dos tickers para encontrar os arquivos `.parquet` brutos e criar os arquivos de *spread* logarítmico (ex: `BRL=X_DOL$_log_prices.parquet`).
+O `run_etl.py` lê esta lista, agrupa os tickers únicos por fonte e chama a função de coleta apropriada em `src/data_collection.py`. O `src/processing.py` então usa os nomes dos tickers para encontrar os arquivos `.parquet` brutos e criar os arquivos de *spread* logarítmico (ex: `BRL=X_DOL$_log_prices.parquet`).
 
 ```python
 # Exemplo de configuração de pares
@@ -31,7 +31,7 @@ ASSET_PAIRS_TO_ANALYZE = [
 
 ### `BENCHMARK_TICKERS`
 
-Define os ativos de *benchmark* (ex: Índice, CDI) que também devem ser baixados pelo `manage_data.py`.
+Define os ativos de *benchmark* (ex: Índice, CDI) que também devem ser baixados pelo `run_etl.py`.
 
 ## Seção 2: Período e Timeframe
 
