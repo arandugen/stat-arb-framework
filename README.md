@@ -42,7 +42,7 @@ A estrutura atual é plana, com os módulos de lógica dentro de `src/` e os scr
 │   ├── **init**.py
 │   ├── backtesting.py
 │   ├── benchmarks.py
-│   ├── data\_collection.py
+│   ├── data_collection.py
 │   ├── indicators.py
 │   ├── models.py
 │   ├── optimizer.py
@@ -55,10 +55,10 @@ A estrutura atual é plana, com os módulos de lógica dentro de `src/` e os scr
 ├── .env                  \# Arquivo para credenciais (NÃO COMMITAR)
 ├── .gitignore
 ├── config.py             \# Arquivo de configuração central
-├── manage\_data.py        \# Orquestrador do pipeline de ETL (Download/Processamento)
-├── main\_pipeline.py      \# Orquestrador principal (Roda tudo: ETL -\> Validação -\> Backtest)
-├── run\_backtest.py       \# Script para rodar um backtest em um único par
-├── run\_validation.py     \# Script para rodar apenas a validação
+├── run_etl.py        \# Orquestrador do pipeline de ETL (Download/Processamento)
+├── main_pipeline.py      \# Orquestrador principal (Roda tudo: ETL -\> Validação -\> Backtest)
+├── run_backtest.py       \# Script para rodar um backtest em um único par
+├── run_validation.py     \# Script para rodar apenas a validação
 └── README.md             \# Este arquivo
 
 ````
@@ -81,7 +81,7 @@ python -m venv .venv
 # Linux/Mac
 source .venv/bin/activate
 
-# 4. Instale os pacotes (crie um requirements.txt se necessário)
+# 4. Instale os pacotes
 pip install -r requirements.txt
 ````
 
