@@ -69,3 +69,25 @@ def process_and_save_relationships(relationships_to_process: list, raw_path: str
         logging.info(f"Arquivo processado salvo com sucesso: {output_filename}")
 
     logging.info("Script de processamento de dados concluído.")
+
+def align_and_merge_cdi(main_df: pd.DataFrame, cdi_df: pd.DataFrame, candles_per_day: int) -> pd.DataFrame:
+    """
+    Alinha o DataFrame do CDI (diário) ao índice do DataFrame principal
+    (que pode ser intradiário) e calcula a taxa por candle.
+    (Lógica movida de run_backtest.py)
+    """
+    logging.info("Alinhando e juntando dados do CDI para o backtest de caixa...")
+    
+    # 1. Alinha o índice do CDI (diário) ao índice do backtest
+    cdi_aligned = cdi_df.reindex(main_df.index, method='ffill')
+    
+    # 2. Calcula a taxa *por candle*
+    if candles_per_day > 0:
+        cdi_aligned['cdi_rate'] = cdi_aligned['cdi_rate'] / candles_per_day
+    else:
+        cdi_aligned['cdi_rate'] = 0.0 # Segurança
+        
+    # 3. Junta a taxa ao DataFrame principal e preenche NaNs
+    final_df = main_df.join(cdi_aligned['cdi_rate']).fillna(0.0)
+    
+    return final_df

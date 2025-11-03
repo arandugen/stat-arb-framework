@@ -30,7 +30,6 @@ def get_all_assets_from_config():
         all_assets_with_source.append(y_asset)
         all_assets_with_source.append(x_asset)
         
-        # Adiciona o par (só os nomes) para o processing.py
         pairs_for_processing.append((y_ticker, x_ticker))
         
     # 2. Coleta tickers dos Benchmarks
@@ -60,7 +59,7 @@ def download_all_data(clean_dir: bool = False):
     # 1. Pega as listas de download separadas por fonte
     mt5_tickers_to_download, yf_tickers_to_download, _ = get_all_assets_from_config()
 
-    all_raw_data = {} # Dicionário para guardar TUDO
+    all_raw_data = {}
 
     # 2. Coleta do MT5
     if mt5_tickers_to_download:
@@ -88,14 +87,14 @@ def download_all_data(clean_dir: bool = False):
     else:
         logging.info("Nenhum ticker configurado para coleta via YFinance.")
     
-    # 4. Salva dados dos ativos (combinados)
+    # 4. Salva dados dos ativos
     if all_raw_data:
         logging.info(f"Salvando dados de {len(all_raw_data)} ativos no total...")
         data_collection.save_data_to_parquet(all_raw_data, raw_data_path)
     else:
         logging.warning("Nenhum dado de ativo foi baixado.")
         
-    # 5. Dados do CDI (continua igual)
+    # 5. Dados do CDI
     df_cdi = data_collection.fetch_cdi_data(config.data_inicio, config.data_fim)
     if df_cdi is not None and not df_cdi.empty:
         df_cdi.to_parquet(os.path.join(raw_data_path, "CDI.parquet"))
@@ -110,14 +109,12 @@ def process_all_data(clean_dir: bool = False):
     if clean_dir:
         utils.clean_directory(processed_data_path)
     
-    # Pega a lista de pares (só os nomes, ex: ('BRL=X', 'DOL$'))
     _, _, pairs_to_process = get_all_assets_from_config()
 
     if not pairs_to_process:
         logging.error("Nenhuma lista de pares encontrada para processar.")
         return
 
-    # O processing.py já sabe como lidar com isso
     processing.process_and_save_relationships(
         relationships_to_process=pairs_to_process,
         raw_path=raw_data_path,
@@ -127,7 +124,7 @@ def process_all_data(clean_dir: bool = False):
 def main_cli():
     """Função para execução via linha de comando (CLI)."""
     parser = argparse.ArgumentParser(description="Painel de controle para o pipeline de dados do projeto.")
-    # (Toda a sua lógica de argparse continua aqui, inalterada)
+   
     subparsers = parser.add_subparsers(dest='command', required=True, help='Comando a ser executado')
     parser_download = subparsers.add_parser('download', help='Baixa os dados brutos.')
     parser_download.add_argument('--clean', action='store_true')

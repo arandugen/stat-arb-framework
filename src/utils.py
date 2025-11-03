@@ -164,3 +164,19 @@ def calculate_formation_window(backtest_config: dict, timeframe_str: str) -> int
     except Exception as e:
         logging.error(f"Erro inesperado ao calcular janela de formação: {e}")
         raise
+
+def formatar_meia_vida(minutos: float) -> str:
+    """
+    Formata a meia-vida de minutos para uma string legível (ex: 'X horas' ou 'Y dias').
+    (Movido de run_validation.py)
+    """
+    if pd.isna(minutos) or minutos <= 0:
+        return ""
+    
+    # Assume 8h de pregão, como na lógica original
+    horas = minutos / 60
+    dias_de_pregao = horas / 8 
+    
+    if dias_de_pregao < 2:
+        return f"{horas:.1f} horas"
+    return f"{dias_de_pregao:.1f} dias"

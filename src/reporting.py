@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import logging
 import os
 import dataframe_image as dfi
+from . import utils # Certifique-se de que src/reporting.py importa o utils
 
 # --- ESTILO GLOBAL DOS GRÁFICOS ---
 plt.style.use('ggplot')
@@ -304,3 +305,37 @@ def generate_full_report(
         plot_equity_curves(strategy_equity, benchmarks, config, output_path=report_path)
     except Exception as e:
         logging.error(f"Erro ao plotar curvas de capital: {e}")
+
+def print_validation_summary(df_valid_pairs: pd.DataFrame):
+    """
+    Imprime um resumo formatado dos pares aprovados para backtest.
+    (Lógica movida de main_pipeline.py)
+    """
+    if df_valid_pairs.empty:
+        logging.warning("Nenhum par cointegrado encontrado com os critérios definidos. Encerrando pipeline.")
+        return
+
+    logging.info(f"Encontrados {len(df_valid_pairs)} pares aprovados para backtest:")
+    
+    # Recria a lógica de formatação que estava no main_pipeline.py
+    df_print = df_valid_pairs.copy()
+    
+    # Tenta usar a função formatar_meia_vida que movemos para utils
+    if 'half_life_minutes' in df_print.columns:
+        df_print['meia_vida'] = df_print['half_life_minutes'].apply(utils.formatar_meia_vida)
+    
+    if 'relationship' in df_print.columns:
+        df_print['relationship_str'] = df_print['relationship'].apply(lambda x: '_'.join(x))
+    
+    colunas_para_mostrar = [
+        'relationship_str', 'status',
+        'adf_p_value_Y', 'adf_p_value_X',
+        'coint_p_value', 'kpss_p_value', 
+        'hurst_exponent', 'is_stationary_robust', 'meia_vida'
+    ]
+    
+    # Filtra colunas que podem não existir (ex: 'meia_vida')
+    colunas_finais = [col for col in colunas_para_mostrar if col in df_print.columns]
+    
+    # Imprime a tabela formatada
+    print(df_print[colunas_finais].to_string(index=False, float_format='%.4f'))

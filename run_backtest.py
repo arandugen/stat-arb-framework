@@ -13,15 +13,16 @@ sys.path.insert(0, str(project_root))
 # --- IMPORTAÇÃO DOS NOSSOS MÓDULOS ---
 import config
 from src import strategy, backtesting, benchmarks, reporting, utils
+from src import processing
 
 # --- CONFIGURAÇÃO DO LOGGING ---
-# (Já é configurado no main.py, mas mantido para execução independente)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - [%(levelname)s] - %(message)s')
 
 
 def main_backtest(pair_to_backtest: tuple):
     """
-    Orquestra a execução de um backtest completo e a análise de performance para um par de ativos.
+    Orquestra a execução de um backtest completo e a análise de performance
+    para um par de ativos.
     """
     pair_name = '_'.join(pair_to_backtest)
     logging.info(f"--- INICIANDO BACKTEST E ANÁLISE PARA O PAR: {pair_name} ---")
@@ -30,9 +31,8 @@ def main_backtest(pair_to_backtest: tuple):
     processed_data_path = project_root / "data" / "processed"
     raw_data_path = project_root / "data" / "raw"
 
-    # a) Carrega dados do par (preços em log)
-    pair_log_prices_path = processed_data_path / f"{pair_name}_log_prices.parquet"
     try:
+        pair_log_prices_path = processed_data_path / f"{pair_name}_log_prices.parquet"
         df_log_prices = pd.read_parquet(pair_log_prices_path)
         df_prices = np.exp(df_log_prices)
         logging.info(f"Dados do par {pair_name} carregados com sucesso.")
@@ -40,7 +40,6 @@ def main_backtest(pair_to_backtest: tuple):
         logging.error(f"Arquivo de dados processados não encontrado: {pair_log_prices_path}")
         return
 
-    # b) Carrega dados dos benchmarks (CDI)
     try:
         df_cdi = pd.read_parquet(raw_data_path / "CDI.parquet")
         logging.info("Dados de benchmark (CDI) carregados com sucesso.")
@@ -51,41 +50,37 @@ def main_backtest(pair_to_backtest: tuple):
     # --- 2. PREPARAÇÃO DA CONFIGURAÇÃO ---
     backtest_config = config.BACKTEST_CONFIG.copy()
     backtest_config["pair_to_backtest"] = pair_to_backtest
+    
     backtest_config["formation_window"] = utils.calculate_formation_window(
         backtest_config, 
         config.timeframe
     )
+    
+    if "thresholds" in config.STRATEGY_CONFIG:
+         backtest_config["thresholds"] = config.STRATEGY_CONFIG["thresholds"]
+    else:
+         backtest_config["thresholds"] = {}
 
     # --- 3. EXECUÇÃO DA ESTRATÉGIA (Cálculo de Sinais) ---
     df_strategy = strategy.calculate_dynamic_zscore(df_log_prices, backtest_config)
     
-    # --- PROTEÇÃO ---
     if df_strategy is None or df_strategy.empty:
-        logging.warning(f"⚠️ Estratégia inválida ou vazia para {pair_name}. Pulando backtest.")
-        return None  # Retorna explicitamente None para o orquestrador entender
+        logging.warning(f"Estratégia inválida ou vazia para {pair_name}. Pulando backtest.")
+        return None
     
     df_with_signals = strategy.generate_hybrid_signals(
         df_strategy, 
-        config.STRATEGY_CONFIG # Passa o novo "Painel de Controle"
+        config.STRATEGY_CONFIG
     )
     
     df_signals_only = df_with_signals.drop(columns=list(pair_to_backtest))
-    
     df_ready_for_backtest = df_prices.join(df_signals_only, how='inner')
 
-    # --- JUNTA O CDI AO DATAFRAME PRINCIPAL ---
-    logging.info("Alinhando e juntando dados do CDI para o backtest de caixa...")
-    
-    cdi_aligned = df_cdi.reindex(df_ready_for_backtest.index, method='ffill')
-    
-    candles_per_day = backtest_config.get('candles_per_day', 1)
-    if candles_per_day > 0:
-    
-        cdi_aligned['cdi_rate'] = cdi_aligned['cdi_rate'] / candles_per_day
-    else:
-        cdi_aligned['cdi_rate'] = 0.0 # Segurança
-        
-    df_ready_for_backtest = df_ready_for_backtest.join(cdi_aligned['cdi_rate']).fillna(0.0)
+    df_ready_for_backtest = processing.align_and_merge_cdi(
+        main_df=df_ready_for_backtest,
+        cdi_df=df_cdi,
+        candles_per_day=backtest_config.get('candles_per_day', 1)
+    )
 
     # --- 4. EXECUÇÃO DO BACKTEST PRINCIPAL ---
     df_results = backtesting.run_backtest(df_ready_for_backtest, backtest_config)

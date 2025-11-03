@@ -28,15 +28,15 @@ Este é o fluxo de trabalho para levar uma nova hipótese (ex: `BGI$ vs. CCM$`) 
     ]
     ```
 
-### Passo 2: Execução do Pipeline de ETL (`manage_data.py`)
+### Passo 2: Execução do Pipeline de ETL (`run_etl.py`)
 Execute o orquestrador de ETL no terminal para baixar e processar os dados do novo par. O script é inteligente e só baixará os tickers que ainda não existem em `data/raw/`.
 
 ```bash
 # 1. Baixa os dados brutos (ex: BGI$.parquet, CCM$.parquet)
-python manage_data.py download
+python run_etl.py download
 
 # 2. Processa os dados brutos (cria BGI$_CCM$_log_prices.parquet)
-python manage_data.py process
+python run_etl.py process
 ````
 
   * **Output (Artefatos):** Novos arquivos em `data/raw/` e `data/processed/`.
